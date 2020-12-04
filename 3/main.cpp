@@ -37,10 +37,6 @@ auto read_grid_from_file()
   std::string line;
   while(std::getline(ifs, line))
     {
-      auto v = parse_line(line);
-      for(auto& a : v)
-	cout <<(int) a << ", ";
-      cout << endl;
       out.push_back(parse_line(line));
     }
   return out;
@@ -68,12 +64,6 @@ int main(int argc, char** argv)
   cout << "parsing grid..." << endl;
   auto grid = read_grid_from_file();
   cout << "grid size is: "<< grid.size() << ", " << grid[0].size() << endl;
-  
-  int num_trees = 0;
-  int i =0;
-  int j= 0;
-
-
   cout << "part 1 number of trees..." << endl;
   cout << traverse_grid(3,1, grid) << endl;
   
