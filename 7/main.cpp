@@ -4,7 +4,6 @@
 #include <tuple>
 #include <algorithm>
 #include <unordered_map>
-#include <optional>
 #include <list>
 #include <fstream>
 #include <unordered_set>
@@ -12,10 +11,8 @@
 
 using std::string;
 using std::vector;
-
 using std::cout;
 using std::endl;
-
 
 void lrstrip(string& s)
 {
@@ -68,14 +65,8 @@ using bagmap = std::unordered_map<string, std::tuple<vector<string>,vector<int>>
 bagmap build_bag_map(const std::vector<bagtup>& inputs)
 {
   bagmap out;
-  for(auto& i : inputs)
-    {
-      auto container = std::get<0>(i);
-      auto contained = std::get<1>(i);
-      auto counts = std::get<2>(i);
+  for(auto& [container, contained, counts] : inputs)
       out[container] = std::make_tuple(contained,counts);
-    }
-
   return out;
 };
 
@@ -93,7 +84,6 @@ std::unordered_set<string> find_possible_containers(const bagmap& map, const str
 	  possible_keys.insert(k);
 	  auto recurse_keys = find_possible_containers(map,k);
 	  possible_keys.insert(recurse_keys.begin(), recurse_keys.end());
-	  //cout << "--key: " << k << endl;
 	}     
     };
   return possible_keys;
@@ -101,16 +91,11 @@ std::unordered_set<string> find_possible_containers(const bagmap& map, const str
 
 int count_total_bags(const bagmap& map, const string& colour, bool top_level=true)
 {
-  auto v = map.find(colour);
-  
-  auto contained_colours = std::get<0>(v->second);
-  auto counts = std::get<1>(v->second);
-
+  auto [k,v] = *map.find(colour);
+  auto&& [contained_colours, counts] = v;
   //  cout << "colour: " << colour;
   if(contained_colours.size() == 0)
-    {
-      return 1;
-    };
+    return 1;
 
   vector<int> recurse_counts;
   recurse_counts.reserve(contained_colours.size());
@@ -119,11 +104,7 @@ int count_total_bags(const bagmap& map, const string& colour, bool top_level=tru
 		 [&map](const string& s) { return count_total_bags(map, s,false);});
 
   auto total = std::inner_product(counts.begin(), counts.end(),
-					  recurse_counts.begin(),  0);
-  if(!top_level)
-    total++;
-
-  //cout << "total: " << total;
+				  recurse_counts.begin(),  (int) !top_level);
   return total;
 }
 
@@ -145,15 +126,14 @@ int main(int argc, char** argv)
   string target_colour = "shiny gold";
   auto bm = build_bag_map(bags);
   auto poskeys = find_possible_containers(bm, target_colour);
-  cout << "possible keys: " ;
+  cout << "part 1 possible keys: " ;
   for(auto& k : poskeys)
     {
       cout << k << ", ";
     }
-  cout << endl;
-  
-  cout << "number of possible keys: " << poskeys.size() << endl;
+  cout << endl;  
+  cout << "number of possible keys (part 1): " << poskeys.size() << endl;
   auto total_bags = count_total_bags(bm, target_colour);
-  cout << "total number of bags: " << total_bags << endl;
+  cout << "total number of bags (part 2): " << total_bags << endl;
 }
   
