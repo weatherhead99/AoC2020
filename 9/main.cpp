@@ -35,6 +35,27 @@ std::set<V> calculate_pairwise_sums(I&& start, I&& end)
   return out;
 }
 
+//turns out this IS substantially faster than above version
+template<typename C, typename V=typename C::value_type,
+	 typename I=typename C::const_iterator>
+std::set<V> calculate_pairwise_sums_sortfirst(I&& start, I&& end)
+{
+  std::set<V> out;
+  C copy(start, end);
+  std::sort(copy.begin(), copy.end());
+  auto it1= copy.cbegin();
+  while(it1 != copy.cend())
+    {
+      for(auto it2 = it1+1; it2 != copy.cend(); it2++)
+	{
+	  out.insert( (*it1) + (*it2));
+	}
+      it1++;
+    }
+
+  return out;
+}
+
 
 template<typename C, typename V=typename C::value_type,
 	 typename I=typename C::const_iterator>
@@ -57,7 +78,13 @@ tuple<It, It> find_sum_range(const C& container, V target)
       range_end = range_start + 1;
       while(range_end != container.cend())
 	{
-	  V sum = std::accumulate(range_start, range_end,0);
+	  V sum = 0;
+	  for(auto rangeit = range_start; rangeit != range_end; rangeit++)
+	    {
+	      sum += *rangeit;
+	      if(sum > target)
+	  	break;
+	    }  
 	  if(sum == target)
 	    goto breakout;
 	  range_end++;
@@ -68,6 +95,29 @@ tuple<It, It> find_sum_range(const C& container, V target)
   return std::make_tuple(range_start, range_end); 
 };
 
+
+template<typename C, typename V=typename C::value_type>
+V find_invalid_value(const C& container, int preamble_size)
+{
+  auto preamble_begin = container.cbegin();
+  auto preamble_end = preamble_begin + preamble_size +1;
+  auto valit = preamble_end;
+  V invalid_value = 0;
+  while(valit != container.cend())
+    {
+      auto preamble_sums = calculate_pairwise_sums_sortfirst<C>(preamble_begin, preamble_end);
+      if(!contains<decltype(container)>(preamble_sums.cbegin(), preamble_sums.cend(), *valit))
+	{
+	  invalid_value = *valit;
+	  break;
+	}
+      valit++;
+      preamble_begin++;
+      preamble_end++;
+    }
+  return invalid_value;
+};
+
 int main(int argc, char** argv)
 {
   std::ifstream ifs("input.txt");
@@ -76,32 +126,9 @@ int main(int argc, char** argv)
   while(std::getline(ifs, line))
     vals.push_back(std::stoul(line));
 
-  int preamble_size = 25;
-
-  auto preamble_begin = vals.cbegin();
-  auto preamble_end = preamble_begin + preamble_size + 1;
-  auto valit = preamble_end;
-  unsigned long invalid_value = 0;
-  while(valit != vals.cend())
-    {
-      auto position = std::distance(vals.cbegin(), valit);
-      auto preamble_sums = calculate_pairwise_sums<decltype(vals)>(preamble_begin, preamble_end);
-      
-      if(!contains<decltype(vals)>(preamble_sums.cbegin(), preamble_sums.cend(),
-				   *valit))
-	{
-	  cout << "value: " << *valit << ", at position: " << position <<  " is not a valid preamble sum" << endl;
-	  invalid_value = *valit;
-	  break;
-	};
-      valit++;
-      preamble_begin++;
-      preamble_end++;
-
-    };
-
+  auto invalid_value = find_invalid_value(vals, 25);
   cout << "invalid value: " << invalid_value << endl;
-
+  
   auto [start, end] = find_sum_range(vals, invalid_value);
   cout << "start of range value: " << *start << endl;;
   cout << "end of range value: " << *end << endl;
