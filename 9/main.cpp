@@ -67,6 +67,10 @@ bool contains(I&& start, I&& end, V&& val)
   return false;
 };
 
+//turns out it's faster to check on the sum at every iteration,
+//and stop if it goes past the target, rather than std::accumulate 'ing
+//the whole thing. This might be very dependent on CPU type
+//however probably not because the ranges get very long after a while
 template<typename C, typename V=typename C::value_type,
 	 typename It=typename C::const_iterator>
 tuple<It, It> find_sum_range(const C& container, V target)
@@ -132,9 +136,16 @@ int main(int argc, char** argv)
   auto [start, end] = find_sum_range(vals, invalid_value);
   cout << "start of range value: " << *start << endl;;
   cout << "end of range value: " << *end << endl;
-  auto maxit = std::max_element(start, end);
-  auto minit = std::min_element(start, end);
-  auto sm = *maxit + *minit;
-  cout << "sum of max and min value: " << sm << endl;
+
+
+  //this is quicker than calling std::max_element and
+  //also std::min_element, which results in 2 sorts
+  auto sorted_copy = decltype(vals)(start,end);
+  std::sort(sorted_copy.begin(), sorted_copy.end());
+  auto max = sorted_copy[sorted_copy.size()-1];
+  auto min = sorted_copy[0];
+  auto sm2 = max+min;
+  cout << "sum of max and min value: " << sm2 << endl;
+  
   
 }
