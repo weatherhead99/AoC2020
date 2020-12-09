@@ -47,12 +47,9 @@ std::set<V> calculate_pairwise_sums_sortfirst(I&& start, I&& end)
   while(it1 != copy.cend())
     {
       for(auto it2 = it1+1; it2 != copy.cend(); it2++)
-	{
 	  out.insert( (*it1) + (*it2));
-	}
       it1++;
     }
-
   return out;
 }
 
@@ -106,20 +103,16 @@ V find_invalid_value(const C& container, int preamble_size)
   auto preamble_begin = container.cbegin();
   auto preamble_end = preamble_begin + preamble_size +1;
   auto valit = preamble_end;
-  V invalid_value = 0;
   while(valit != container.cend())
     {
       auto preamble_sums = calculate_pairwise_sums_sortfirst<C>(preamble_begin, preamble_end);
       if(!contains<decltype(container)>(preamble_sums.cbegin(), preamble_sums.cend(), *valit))
-	{
-	  invalid_value = *valit;
 	  break;
-	}
       valit++;
       preamble_begin++;
       preamble_end++;
     }
-  return invalid_value;
+  return *valit;
 };
 
 int main(int argc, char** argv)
@@ -134,18 +127,11 @@ int main(int argc, char** argv)
   cout << "invalid value: " << invalid_value << endl;
   
   auto [start, end] = find_sum_range(vals, invalid_value);
-  cout << "start of range value: " << *start << endl;;
-  cout << "end of range value: " << *end << endl;
+  // cout << "start of range value: " << *start << endl;;
+  // cout << "end of range value: " << *end << endl;
 
-
-  //this is quicker than calling std::max_element and
-  //also std::min_element, which results in 2 sorts
-  auto sorted_copy = decltype(vals)(start,end);
-  std::sort(sorted_copy.begin(), sorted_copy.end());
-  auto max = sorted_copy[sorted_copy.size()-1];
-  auto min = sorted_copy[0];
-  auto sm2 = max+min;
-  cout << "sum of max and min value: " << sm2 << endl;
+  auto [min, max] = std::minmax_element(start, end);
+  cout << "sum of max and min value: " << (*min+ *max) << endl;
   
   
 }
