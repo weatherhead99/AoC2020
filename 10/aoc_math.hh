@@ -53,49 +53,6 @@ C get_diffs(It&& start, It&& end, int order=1)
 };
 
 
-template<typename C, typename V = typename C::value_type>
-std::vector<std::size_t> get_removal_positions(const C& adaptors)
-{
-  auto diff2 = get_diffs<C>(adaptors.begin(),adaptors.end(),2);
-  std::vector<std::size_t> out;
-  out.reserve(diff2.size());
-  for(auto dit = ++diff2.begin(); dit != diff2.end(); dit++)
-    {
-      if(*dit ==0)
-	out.push_back(std::distance(diff2.begin(), dit) -1);
-    }
-  return out;
-};
-
-template<typename C, typename V = typename C::value_type>
-std::vector<int> get_run_lengths(const C& adaptors)
-{
-  auto removal_positions = get_removal_positions<C>(adaptors);
-  auto diff_removals = get_diffs<C>(removal_positions.begin(), removal_positions.end());
-  for(auto& d : diff_removals)
-    cout << d << ",";
-  cout << endl;
-
-  
-  std::vector<int> runlengths;
-  int runlength = 0;
-  for(auto dit = diff_removals.begin() +2; dit != diff_removals.end(); dit++)
-    {
-      cout << "*dit: " << *dit << endl;
-      runlength++;
-      cout << "runglength: " << runlength << endl;
-      if(*dit  != 1)
-	{
-	  runlengths.push_back(runlength);
-	  runlength = 0;
-	  continue;
-	}
-
-    };
-  return runlengths;
-}
-
-
 template<typename C, typename V=typename C::value_type>
 std::vector<int> removal_run_lengths(const C& in)
 {
