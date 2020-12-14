@@ -36,7 +36,6 @@ U apply_mask(U val, U maskbits, U maskval)
 {
   std::bitset<36> maskbitset(maskbits);
   std::bitset<36> maskvalset(maskval);
-
   std::bitset<36> out(val);
 
   for(int i=0; i < 36; i++)
@@ -80,25 +79,17 @@ std::set<U> enumerate_possibilities(U addr, U Xbits, U maskval)
   std::bitset<36> maskbitset(Xbits);
   //find maximum set mask bit
   U possibilities = 1 << maskbitset.count();
-  cout << "possibilities: "<< possibilities << endl;
-
   std::set<U> out;
   out.insert(apply_mask_part2(addr, maskval));
   
   for(int i=0; i < 36; i++)
-    {
       if(maskbitset[i])
-	{
 	  for(auto& v : out)
 	    {
 	      std::bitset<36> newval(v);
 	      newval.flip(i);
 	      out.insert(newval.to_ullong());
 	    }
-	}
-    }
-
-  cout << "set size: " << out.size() << endl;
   return out;
 };
 
@@ -106,17 +97,12 @@ std::set<U> enumerate_possibilities(U addr, U Xbits, U maskval)
 struct mem
 {
   std::map<U, U> _memmap;
-  void set_mem_val(U addr, U val,
-		   U maskbits, U maskval)
-  {
-    _memmap[addr] = apply_mask(val, maskbits, maskval);
-  };
 
   void apply_command(const mem_command& com)
   {
     auto addrit = com.addrs.begin();
     for(auto& val : com.writevals)
-      set_mem_val(*addrit++, val, com.maskbits, com.maskvals);
+      _memmap[*addrit++] = apply_mask(val, com.maskbits, com.maskvals);
   };
 
   void apply_command_part2(const mem_command& com)
@@ -128,13 +114,17 @@ struct mem
 	auto addr_possibles = enumerate_possibilities(*addrit++, xbits, com.maskvals);
 	for(auto& possible: addr_possibles)
 	  {
-	    cout << "possible address: " << possible << endl;
 	    _memmap[possible] = val;
 	  }
-	  
-
       }
   };
+
+  U memory_sum() const
+  {
+    return std::accumulate(_memmap.begin(), _memmap.end(),
+			   0ull, [](auto& acc, auto& v)
+			   { return acc + v.second;});
+  }
 };
 
 
@@ -161,8 +151,6 @@ std::tuple<U, U> parse_mask_string(const string& s)
 	  bs_vals.set(35-i, s[i] - (int) '0');
 	}
     }
-  cout << "bs_mask: " << bs_mask << endl;
-  cout << "bs_vals: " << bs_vals << endl;
   return {bs_mask.to_ullong(), bs_vals.to_ullong()};
 };
 
@@ -236,21 +224,11 @@ int main(int argc, char** argv)
    for(auto& [k,v] : m._memmap)
      cout << "k: " << k << ", v: " << std::bitset<36>(v) << endl;
 
-
-  
-  auto sm = std::accumulate(m._memmap.begin(), m._memmap.end(),
-			    0ull, [](auto& acc, auto& v)
-			    { return acc + v.second;});
-
-  cout << "memory sum: " << sm << endl;
+  cout << "memory sum: " << m.memory_sum() << endl;
 
   mem m2;
   for(auto& com : cmds)
     m2.apply_command_part2(com);
 
-  auto sm2 = std::accumulate(m2._memmap.begin(), m2._memmap.end(),
-			     0ull, [](auto& acc, auto& v)
-			     { return acc + v.second;});
-
-  cout << "memory sum part 2: " << sm2 << endl;
+  cout << "memory sum part 2: " << m2.memory_sum() << endl;
 };
