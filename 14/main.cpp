@@ -7,17 +7,21 @@
 #include <bitset>
 #include <tuple>
 #include <map>
+#include <vector>
+#include <set>
 
 using std::cout;
 using std::endl;
 using std::string;
 
+using U = unsigned long long;
+
 struct mem_command
 {
-  unsigned long maskvals = 0;
-  unsigned long maskbits = 0;
-  std::vector<unsigned long> addrs;
-  std::vector<unsigned long> writevals;
+  U maskvals = 0;
+  U maskbits = 0;
+  std::vector<U> addrs;
+  std::vector<U> writevals;
 
   void clear()
   {
@@ -28,36 +32,83 @@ struct mem_command
   }
 };
 
-unsigned long apply_mask(unsigned long val,
-			 unsigned long maskbits,
-			 unsigned long maskval)
+U apply_mask(U val, U maskbits, U maskval)
 {
   std::bitset<36> maskbitset(maskbits);
   std::bitset<36> maskvalset(maskval);
 
-  std::bitset<36> out(maskval);
+  std::bitset<36> out(val);
 
-  cout << "out: " << out.to_ulong() << endl;
   for(int i=0; i < 36; i++)
     {
       if(maskbitset[i])
 	out[i] = maskvalset[i];
     }
 
-  cout << "out: " << out.to_ulong() << endl;
-  return out.to_ulong();
+  return out.to_ullong();
 }
+
+U apply_mask_part2(U val, U maskval)
+{
+  std::bitset<36> out(val);
+  std::bitset<36> maskvalset(maskval);
+  for(int i=0; i < 36; i++)
+    {
+      if(maskvalset[i])
+	out[i] = 1;
+    }
+  return out.to_ullong();
+}
+
+U get_X_bits(U maskbits, U maskvals)
+{
+  std::bitset<36> maskbitset(maskbits);
+  std::bitset<36> maskvalset(maskvals);
+
+  std::bitset<36> out(0);
+  for(int i=0; i < 36; i++)
+    {
+      if(maskbitset[i] == false && maskvalset[i] == false)
+	out[i] = true;
+    }
+  return out.to_ullong();
+}
+
+
+std::set<U> enumerate_possibilities(U addr, U Xbits, U maskval)
+{
+  std::bitset<36> maskbitset(Xbits);
+  //find maximum set mask bit
+  U possibilities = 1 << maskbitset.count();
+  cout << "possibilities: "<< possibilities << endl;
+
+  std::set<U> out;
+  out.insert(apply_mask_part2(addr, maskval));
+  
+  for(int i=0; i < 36; i++)
+    {
+      if(maskbitset[i])
+	{
+	  for(auto& v : out)
+	    {
+	      std::bitset<36> newval(v);
+	      newval.flip(i);
+	      out.insert(newval.to_ullong());
+	    }
+	}
+    }
+
+  cout << "set size: " << out.size() << endl;
+  return out;
+};
 
 
 struct mem
 {
-  std::map<unsigned long, unsigned long> _memmap;
-  void set_mem_val(unsigned long addr, unsigned long val,
-		   unsigned long maskbits, unsigned long maskval)
+  std::map<U, U> _memmap;
+  void set_mem_val(U addr, U val,
+		   U maskbits, U maskval)
   {
-    cout << "val: " << val << endl;
-    cout << "maskbits: "<< maskbits << endl;
-    cout << "maskval: "<< maskval << endl;
     _memmap[addr] = apply_mask(val, maskbits, maskval);
   };
 
@@ -67,7 +118,23 @@ struct mem
     for(auto& val : com.writevals)
       set_mem_val(*addrit++, val, com.maskbits, com.maskvals);
   };
- 
+
+  void apply_command_part2(const mem_command& com)
+  {
+    auto addrit = com.addrs.begin();
+    for(auto& val : com.writevals)
+      {
+	auto xbits = get_X_bits(com.maskbits, com.maskvals);
+	auto addr_possibles = enumerate_possibilities(*addrit++, xbits, com.maskvals);
+	for(auto& possible: addr_possibles)
+	  {
+	    cout << "possible address: " << possible << endl;
+	    _memmap[possible] = val;
+	  }
+	  
+
+      }
+  };
 };
 
 
@@ -77,7 +144,7 @@ void lrstrip(std::string& s)
   s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char uc){return !std::isspace(uc);}).base(), s.end());
 }
 
-std::tuple<unsigned long, unsigned long> parse_mask_string(const string& s)
+std::tuple<U, U> parse_mask_string(const string& s)
 {
   std::bitset<36> bs_mask(0);
   std::bitset<36> bs_vals(0);
@@ -85,19 +152,21 @@ std::tuple<unsigned long, unsigned long> parse_mask_string(const string& s)
     {
       if(s[i] == 'X')
 	{
-	  bs_mask.set(i, false);
-	  bs_vals.set(i, false);
+	  bs_mask.set(35- i, false);
+	  bs_vals.set(35-i, false);
 	}
       else
 	{
-	  bs_mask.set(i, true);
-	  bs_vals.set(i, s[i] - (int) '0');
+	  bs_mask.set(35-i, true);
+	  bs_vals.set(35-i, s[i] - (int) '0');
 	}
     }
-  cout << "bs_mask: " << bs_mask.to_ulong() << endl;
-  cout << "bs_vals: " << bs_vals.to_ulong() << endl;
-  return {bs_mask.to_ulong(), bs_vals.to_ulong()};
+  cout << "bs_mask: " << bs_mask << endl;
+  cout << "bs_vals: " << bs_vals << endl;
+  return {bs_mask.to_ullong(), bs_vals.to_ullong()};
 };
+
+
 
 
 template<typename Stream>
@@ -112,12 +181,12 @@ std::vector<mem_command> parse_input(Stream&& strm)
       auto delimpos = line.find('=');
       auto cmd = line.substr(0, delimpos);
       lrstrip(cmd);
-      
+      cout << "cmd: " << cmd << endl;
       if(cmd == "mask")
 	{
 	  if(not first)
 	    {
-	      cout << "pushing back command";
+	      cout << "pushing back command" << endl;;
 	      out.push_back(current_command);
 	      current_command.clear();
 	    }
@@ -136,12 +205,12 @@ std::vector<mem_command> parse_input(Stream&& strm)
 	  auto leftdelim = line.find('[');
 	  auto rightdelim = line.find(']');
 	  auto memaddrstr = line.substr(leftdelim+1, rightdelim-leftdelim-1);
-	  cout << "addrstr: "<< memaddrstr << endl;
-	  auto memaddr = std::stoul(memaddrstr);
-	  cout << "addr: " << memaddr << endl;
+	  auto memaddr = std::stoull(memaddrstr);
 	  auto memvalstr = line.substr(delimpos+1);
+	  cout << "length of memval: " << memvalstr.size() << endl;
+	  cout << "memvalstr: " << memvalstr << endl;
 	  lrstrip(memvalstr);
-	  auto memval = std::stoul(memvalstr);
+	  auto memval = std::stoull(memvalstr);
 	  current_command.addrs.push_back(memaddr);
 	  current_command.writevals.push_back(memval);
 	};
@@ -155,7 +224,7 @@ std::vector<mem_command> parse_input(Stream&& strm)
 
 int main(int argc, char** argv)
 {
-  std::ifstream ifs("input2.txt");
+  std::ifstream ifs("input.txt");
   auto cmds = parse_input(ifs);
 
   cout << "number of commands: " << cmds.size() << endl;
@@ -163,14 +232,25 @@ int main(int argc, char** argv)
 
   for(auto& com : cmds)
     m.apply_command(com);
+
+   for(auto& [k,v] : m._memmap)
+     cout << "k: " << k << ", v: " << std::bitset<36>(v) << endl;
+
+
   
   auto sm = std::accumulate(m._memmap.begin(), m._memmap.end(),
-			    0, [](auto& acc, auto& v)
+			    0ull, [](auto& acc, auto& v)
 			    { return acc + v.second;});
 
   cout << "memory sum: " << sm << endl;
 
-  for(auto& [k,v] : m._memmap)
-    cout << "k: " << k << ", v: " << v << endl;
+  mem m2;
+  for(auto& com : cmds)
+    m2.apply_command_part2(com);
 
+  auto sm2 = std::accumulate(m2._memmap.begin(), m2._memmap.end(),
+			     0ull, [](auto& acc, auto& v)
+			     { return acc + v.second;});
+
+  cout << "memory sum part 2: " << sm2 << endl;
 };
