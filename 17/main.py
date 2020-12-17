@@ -1,73 +1,43 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Dec 17 12:16:40 2020
-
-@author: danw
-"""
 import numpy as np
-from scipy.sparse import coo_matrix
 from math import floor, ceil
 from scipy.ndimage import convolve
 
-def parse_grid(fname:str):
+def parse_grid(fname: str) -> np.ndarray:
     with open(fname, "r") as f:
-        lines = [_.strip() for _ in f.readlines()]
-    xlen = len(lines[0])
-    ylen = len(lines)
-    out = np.zeros(dtype=np.uint8, shape=(xlen,ylen))
-    for i in range(xlen):
-        for j in range(ylen):
-            out[j,i] = 1 if lines[j][i] == "#" else 0
-    return out
+        lines = [list(_.strip()) for _ in f.readlines()]
+    out = np.array(lines)
+    return out == '#'
 
-grid = parse_grid("input.txt")
-#can't grow by more than 2 in z for each turn, so for 6 turns we need 12 in z axis
-NTURNS = 6
-simul_grid = np.zeros_like(grid,shape=(2*NTURNS +1, grid.shape[0]+ 2 * NTURNS, grid.shape[1] + 2 * NTURNS))
-middle_slice = (simul_grid.shape[0] //2, 
-                slice(simul_grid.shape[1]//2-floor(grid.shape[0]/2), simul_grid.shape[1]//2+ceil(grid.shape[0]/2)),
-                slice(simul_grid.shape[2]//2-floor(grid.shape[1]/2), simul_grid.shape[2]//2+ ceil(grid.shape[1]/2)))
+def get_simul_grid(grid_in: np.ndarray, D: int=3) -> np.ndarray:
+    inD = len(grid_in.shape)
+    simul_grid = grid_in.reshape( (*tuple([1]*(D-inD)), *grid_in.shape))
+    simul_grid = np.pad(simul_grid, [(NTURNS,NTURNS)] * len(simul_grid.shape))
+    return simul_grid
 
-
-def get_conv_weights(D: int = 3):
-    shp = tuple([3] * D)
-    cent  = tuple([1] * D)
-    out = np.ones(shp,dtype=np.uint8)
-    out[cent] = 0
-    return out
-
-#ok, seems to work
-def count_active_neighbours_conv(grid, D: int =3):
-    weights = get_conv_weights(D)
-    neighboursum = convolve(grid, weights, mode="constant", cval=0.0)
+def count_active_neighbours_conv(grid: np.ndarray, D: int =3) -> np.ndarray:
+    weights = np.ones(tuple([3]*D),dtype=np.uint8)
+    weights[tuple([1]*D)] = 0
+    neighboursum = convolve(grid.astype(np.uint8), weights, mode="constant", cval=0)
     return neighboursum
 
-def step_grid(grid, *args, **kwargs):
+def step_grid(grid: np.ndarray, *args, **kwargs) -> None:
     active_neighbours = count_active_neighbours_conv(grid, *args, **kwargs)
-    remain_active_selec = np.logical_and(grid, np.logical_or(active_neighbours==2, active_neighbours==3))
-    deactivate_selec = np.logical_and(grid, np.logical_not(remain_active_selec))
+    deactivate_selec = np.logical_and(grid, np.logical_not(np.logical_or(active_neighbours==2, active_neighbours==3)))
     activate_selec = np.logical_and(np.logical_not(grid), active_neighbours==3)
     grid[activate_selec] = 1
     grid[deactivate_selec] = 0
 
-
-simul_grid[middle_slice] = grid
-
-neighbours = count_active_neighbours_conv(simul_grid)
-simul_grid_start = simul_grid.copy()
-
-for i in range(6):
-    step_grid(simul_grid, 3)
-print(f"number active: {np.count_nonzero(simul_grid)}")
-
-
-simul_grid = simul_grid_start.copy()
-simul_grid4 = simul_grid.reshape((1,*simul_grid.shape))
-simul_grid4 = np.pad(simul_grid4, [((2*NTURNS+1)//2, (2*NTURNS+1)//2), (0,0), (0,0),(0,0)])
-
-for i in range(6):
-    step_grid(simul_grid4, 4)
-    
-
+#NB, grid size cannot grow by more than 2  in each dimension at each turn, 
+#so we know in advance we just need to padf each axis by 6 on each side of the given
+#numbers
+if __name__ == "__main__":
+    grid = parse_grid("input.txt")
+    NTURNS = 6
+    for D in (3,4):
+        simul_grid = get_simul_grid(grid,D)
+        for i in range(NTURNS):
+            step_grid(simul_grid,D)
+        n_active = np.count_nonzero(simul_grid)
+        print(f"dimension: {D}, number active: {n_active}")
 
