@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <deque>
+#include <algorithm>
 
 using std::cout;
 using std::endl;
@@ -14,6 +15,20 @@ using std::string;
 
 
 using rule = std::variant<char, std::vector<std::vector<int>>>;
+
+std::vector<int> parse_rule_string(const string& in)
+{
+  std::istringstream iss(in);
+  std::vector<int> out;
+  int val = 0;
+  while(iss >> val || !iss.eof())
+    {
+      if(!iss.fail())
+	out.push_back(val);
+    }
+  return out;
+}
+
 
 std::map<int, rule> parse_rules(std::ifstream& ifs)
 {
@@ -28,14 +43,20 @@ std::map<int, rule> parse_rules(std::ifstream& ifs)
       
       auto delimpos = line.find(':');
       auto rulenum = std::stoi(line.substr(0, delimpos));
+      if(rulenum == 69)
+	cout << "69: rule line: " << line << endl;
+      
 
       //find plain char rules
       auto quotepos1 = line.find("\"");
       auto alternativepos = line.find("|");
       if(quotepos1 != string::npos)
 	{
+	  if(rulenum ==69)
+	    cout << "quotepos1: " << quotepos1 << endl;
 	  //cout << "rulenum: " << rulenum << " has quotes" << endl;
-	  out[rulenum] = line[quotepos1+1];
+	  cout << "chr: " << line[quotepos1+1] << endl;
+	  out[rulenum] = static_cast<char>(line[quotepos1+1]);
 	}
       else if(alternativepos != string::npos)
 	{
@@ -45,9 +66,13 @@ std::map<int, rule> parse_rules(std::ifstream& ifs)
 	  std::vector<int> alt1;
 	  alt1.resize(2);
 	  std::istringstream iss(line.substr(delimpos+1, alternativepos - (delimpos+1)));
+	  if(rulenum ==20)
+	    cout << "alternate1str: " << line.substr(delimpos+1, alternativepos - (delimpos+1)) << endl;
 	  iss >> alt1[0] >> alt1[1];
 	  alts.push_back(alt1);
 	  iss.str(line.substr(alternativepos +1));
+	  if(rulenum == 20)
+	    cout << "alternate2str: " << line.substr(alternativepos+1) << endl;
 	  std::vector<int> alt2;
 	  alt2.resize(2);
 	  iss >> alt2[0] >> alt2[1];
@@ -63,6 +88,10 @@ std::map<int, rule> parse_rules(std::ifstream& ifs)
 	  alt1.resize(2);
 	  std::istringstream iss(line.substr(delimpos+1));
 	  iss >> alt1[0] >> alt1[1];
+	  //HACK to make it work, nasty
+	  if(alt1[1] ==0)
+	    alt1.resize(1);
+	  
 	  alts.push_back(alt1);
 	  out[rulenum] = alts;
 	  
@@ -79,19 +108,15 @@ std::map<int, rule> parse_rules(std::ifstream& ifs)
 bool match_rule(const rule& r,  const std::map<int, rule>& rulesmap,
 		std::istringstream& iss, int level = 0)
 {
-  cout << "tellg: " << iss.tellg() << endl;
+  //cout << "tellg: " << iss.tellg() << endl;
   if(const char* matchchar = std::get_if<char>(&r))
     {
-      //cout << "char rule" << endl;
+      cout << "char rule" << endl;
       if(char nextchar = iss.get())
 	{
-	  cout << "nextchar:"  << nextchar << "matchchar: " << *matchchar << endl;
+	  //ut << "nextchar:"  << nextchar << "matchchar: " << *matchchar << endl;
 	  if(nextchar == *matchchar)
 	    {
-	      //cout << "matched!" << endl;
-	      if(level == 0)
-		iss.putback(nextchar);
-	      //cout << "char match" << endl;
 	      return true;
 	    }
 	  iss.putback(nextchar);
@@ -110,14 +135,20 @@ bool match_rule(const rule& r,  const std::map<int, rule>& rulesmap,
       for(auto& alternative_ruleset : subrules)
 	{
 	  bool matches_inner = true;
-	  std::deque<char> taken_chars;
+	  int matchcount = 0;
 	  for(auto& ruleidx: alternative_ruleset)
 	    {
 	      cout << "ruleidx: " << ruleidx << endl;
+	      if(ruleidx ==0)
+		{
+		throw std::logic_error("called rule 0!");
+		}
+	      
+	      //cout << "ruleidx: " << ruleidx << endl;
 	      const auto& rule = rulesmap.at(ruleidx);
 	      bool thismatch = match_rule(rule, rulesmap, iss, level+1);
-	      char taken  = iss.get();
-	      taken_chars.push_back(taken);
+	      if(thismatch)
+		matchcount++;
 	      matches_inner &= thismatch;
 	      
 	    };
@@ -127,11 +158,8 @@ bool match_rule(const rule& r,  const std::map<int, rule>& rulesmap,
 	    }
 	  else
 	    {
-	      while(!taken_chars.empty())
-		{
-		  iss.putback(taken_chars.front());
-		  taken_chars.pop_front();
-		}
+	      for(int i=0 ; i < matchcount; i++)
+		iss.unget();
 	    }
 	};
       
@@ -147,6 +175,8 @@ bool match_rule(const rule& r, const std::map<int, rule>& rulesmap,
   std::istringstream iss(in);
   bool match = match_rule(r, rulesmap, iss,0);
   cout << "tellg: "<< iss.tellg() << endl;
+  if(match && (iss.tellg() != in.size()))
+    return false;
   return match;
 }
 
@@ -154,16 +184,43 @@ bool match_rule(const rule& r, const std::map<int, rule>& rulesmap,
 
 int main(int argc, char** argv)
 {
-  std::ifstream ifs("input2.txt");
+  std::ifstream ifs("input.txt");
   auto rules = parse_rules(ifs);
   string line;
   auto rule0 = rules.at(0);
+  int matchcount = 0;
+
+  for(auto& [k,v]: rules)
+    {
+      auto* subrules = std::get_if<std::vector<std::vector<int>>>(&v);
+      if(subrules)
+	{
+	  for(auto& rule_alts : *subrules)
+	    {
+	      auto pos = std::find(rule_alts.begin(), rule_alts.end(), 0);
+	      if(pos != rule_alts.end())
+		{
+		cout << "0 found in rule : "<< k << endl;
+		for(auto& r : rule_alts)
+		  cout << r << ",";
+		cout << endl;
+		}
+	    }
+		      
+	}
+
+    };
+
+  
+  
   while(std::getline(ifs, line))
     {
       cout << "considering line: " << line << endl;
       auto matches = match_rule(rule0, rules, line);
+      if(matches)
+	matchcount++;
       cout << "matches rule 0? " << std::boolalpha << matches << endl;
     }
-  
+  cout << "matchcount: " << matchcount << endl;
 
 }
