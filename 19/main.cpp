@@ -152,15 +152,14 @@ bool match_rule(const rule& r, const std::map<int, rule>& rulesmap,
   return match;
 }
 
-bool match_any_number_of_times(std::istringstream& iss, const rule& r, const std::map<int,rule>& rulesmap, int level)
+int match_any_number_of_times(std::istringstream& iss, const rule& r, const std::map<int,rule>& rulesmap, int level)
 {
-  bool anymatch = false;
-  while(!iss.fail())
+  int matches = 0;
+  while(!iss.eof())
     {
       auto init_seek = iss.tellg();
       auto match = match_rule(r, rulesmap, iss, level+1);
-      
-      anymatch |= match;
+      matches += match;
       if(!match)
 	{
 	  iss.seekg(init_seek);
@@ -169,93 +168,32 @@ bool match_any_number_of_times(std::istringstream& iss, const rule& r, const std
     }
   //cout << endl;
   
-  return anymatch;
+  return matches;
 }
 
 
-
-bool special_rule_8(std::istringstream& iss, const std::map<int, rule>& rulesmap, int level)
-{
-  auto rule_42 = rulesmap.at(42);
-  cout << "special rule 8 invoked " << endl;
-  return match_any_number_of_times(iss, rule_42, rulesmap, level);
-};
-
-
-bool special_rule_11(std::istringstream& iss, const std::map<int,rule>& rulesmap, int level)
-{
-  cout << "special rule 11 invoked" << endl;
-  auto rule_42 = rulesmap.at(42);
-  auto rule_31 = rulesmap.at(31);
-  auto init_seek = iss.tellg();
-  bool match_42 = match_any_number_of_times(iss, rule_42, rulesmap, level);
-  bool match_31 = match_any_number_of_times(iss, rule_31, rulesmap, level);
-
-  bool bothmatch = match_42 && match_31;
-  if(!bothmatch)
-    iss.seekg(init_seek);
-  
-  return bothmatch;
-};
-
-
-bool match_rule_part2(const rule& r,  const std::map<int, rule>& rulesmap,
-		std::istringstream& iss, int level = 0)
-{
-  if(const char* matchchar = std::get_if<char>(&r))
-      return char_match(*matchchar, iss);
-  else
-    {
-      auto& subrules = std::get<std::vector<std::vector<int>>>(r);
-      auto init_seek = iss.tellg();
-      for(auto& alternative_ruleset : subrules)
-	{
-	  bool matches_inner = true;
-	  for(auto& ruleidx: alternative_ruleset)
-	    {
-	      bool thismatch = false;
-	      cout <<  ruleidx << ",";
-	      if(ruleidx ==0)
-		throw std::logic_error("called rule 0!");
-	      else if(ruleidx ==8)
-		matches_inner &= special_rule_8(iss, rulesmap, level);
-	      else if(ruleidx ==11)
-		matches_inner &= special_rule_11(iss, rulesmap, level);
-	      else
-		{
-		  const auto& rule = rulesmap.at(ruleidx);
-		  thismatch = match_rule_part2(rule, rulesmap, iss, level+1);
-		  matches_inner &= thismatch;
-		}
-	      
-	    };
-	  //cout << endl;
-	  if(matches_inner)
-	    return true;
-	  else
-	    iss.seekg(init_seek);
-	};
-      
-      //cout << "no ruleset matched, returning false" << endl;
-      return false;
-    }
-
-};
-
-bool match_rule_part2(const rule& r, const std::map<int, rule>& rulesmap,
-		const string& in)
+bool part2(const std::map<int,rule>& rulesmap,
+	   const string& in)
 {
   std::istringstream iss(in);
-  bool match = match_rule_part2(r, rulesmap, iss,0);
+  auto rule42 = rulesmap.at(42);
+  auto rule31 = rulesmap.at(31);
+  auto n_42_matches = match_any_number_of_times(iss, rule42, rulesmap, 0);
+  cout << "# of 42 matches: " << n_42_matches << endl;
+  auto n_31_matches = match_any_number_of_times(iss, rule31, rulesmap, 0);
+  cout << "# of 31 matches: " << n_31_matches << endl;
 
-  cout << "tellg: "<< iss.tellg() << endl;
-  if(match && ( (iss.tellg() != -1  && iss.tellg() != in.size())))
-    {
-      cout << "matches, but rejected due to tellg() constraint" << endl;
-      return false;
-    }
-  return match;
+
+  //each rule 11 match needs 1 rule 31 match & 1 rule 42 match
+  int n_42_remaining_for_rule_8 = n_42_matches - n_31_matches;
+  if(n_42_remaining_for_rule_8 > 0 && n_31_matches > 0)
+    return true;
+  return false;
+  
+  
 }
+
+
 
 
 int main(int argc, char** argv)
@@ -287,7 +225,7 @@ int main(int argc, char** argv)
   for(auto& ln : to_match)
     {
       cout << "considering line: " << ln << endl;
-      auto matches = match_rule_part2(rule0, rules, ln);
+      auto matches = part2(rules, ln);
       if(matches)
 	matchcount++;
       cout << "matches rule 0? " << std::boolalpha << matches << endl;
