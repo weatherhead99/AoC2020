@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <vector>
 #include <unordered_map>
-
+#include <sstream>
 
 using std::cout;
 using std::endl;
@@ -29,7 +29,6 @@ std::vector<string> parse_set(const string& subline, const string& delim, bool e
   while(spcpos != string::npos)
     {
       auto substr = subline.substr(start, spcpos - start);
-     
       lrstrip(substr);
       out.push_back(substr);
       start = spcpos + 1;
@@ -37,7 +36,7 @@ std::vector<string> parse_set(const string& subline, const string& delim, bool e
     }
   if(extra)
     {
-      auto substr = subline.substr(spcpos+1);
+      auto substr = subline.substr(start);
       lrstrip(substr);
       out.push_back(substr);
     }
@@ -67,7 +66,7 @@ std::tuple<std::vector<string>, std::vector<string>> parse_ingredient_line(const
 
 int main(int argc, char** argv)
 {
-  std::ifstream ifs("input2.txt");
+  std::ifstream ifs("input.txt");
   string line;
   std::vector<std::vector<string>> foodsvec;
   std::vector<std::vector<string>> allergensvec;
@@ -86,36 +85,141 @@ int main(int argc, char** argv)
     }  
   cout << "total allergens: " << allallergens.size() << endl;
 
-  std::unordered_map<string, std::vector<string>> possible_food_allergens_map;
   for(auto& a : allallergens)
     {
-      std::unordered_set<string> possible_foods;
+      cout << a << ",";
+    }
+  cout << endl;
+
+  ingredients allfoods;
+  for(auto& all : foodsvec)
+    {
+      for(auto& a : all)
+	allfoods.insert(a);
+    }
+
+  
+  std::unordered_map<string, std::vector<string>> possible_foods_map;
+  
+  for(auto& a : allallergens)
+    {
+      std::vector<string> possible_foods;
       auto foodit = foodsvec.begin();
       for(auto& ca : allergensvec)
 	{
-	  auto pos = std::find(ca.cbegin(), ca.cend(), a);
+	  auto pos = std::find(ca.begin(), ca.end(), a);
 	  if(pos != ca.end())
 	    {
-	      for(auto& f : *(foodit++))
+	      if(possible_foods.empty())
 		{
-		  possible_foods.insert(f);
+		  possible_foods.resize(foodit->size());
+		  std::copy(foodit->begin(), foodit->end(), possible_foods.begin());
 		}
-	    };
+	      else
+		{
+		  std::vector<string> temp;
+		  temp.reserve(possible_foods.size());
+		  std::sort(possible_foods.begin(), possible_foods.end());
+		  std::set_intersection(possible_foods.begin(), possible_foods.end(),
+					foodit->begin(), foodit->end(), std::back_inserter(temp));
+		  possible_foods = temp;
+		}
+	    }
+	  foodit++;
 	}
-      std::vector<string> outvec(possible_foods.begin(), possible_foods.end());
-      std::sort(outvec.begin(), outvec.end());
-      possible_food_allergens_map[a] = outvec;
+      possible_foods_map[a] = possible_foods;
     }
-  
-  for(auto& [k,v] : possible_food_allergens_map)
+
+
+  std::unordered_set<string> all_allergenic_foods;
+  for(auto& [k,v] : possible_foods_map)
     {
-      cout << "allergen: " << k << endl;
-      cout << "----" << endl;
-      for(auto& a : v)
+      all_allergenic_foods.insert(v.begin(), v.end());
+    };
+  
+
+  std::vector<string> unallergenic_foods;
+  for(auto& food: allfoods)
+    {
+      if(all_allergenic_foods.find(food) != all_allergenic_foods.end())
+	continue;
+      unallergenic_foods.push_back(food);
+    };
+
+  
+  for(auto& fd: unallergenic_foods)
+    cout << fd << ",";
+  cout << endl;
+
+  //count number of occurrences;
+  int total_count = 0;
+  for(auto& fd:  unallergenic_foods)
+    {
+      for(auto& foodlist: foodsvec)
 	{
-	  cout << a << ", ";
-	}
+	  total_count += std::count(foodlist.begin(), foodlist.end(), fd);
+	};
+    }
+
+  cout << "total unallergenic food appearance: " << total_count << endl;
+
+  while(true)
+    {
+      bool any_length_gt_1 = false;
+
+      for(auto& [k,v] : possible_foods_map)
+	{
+	  if(v.size() > 1)
+	    {
+	      cout << "key: " << k << "gr length 1" << endl;
+	      any_length_gt_1 = true;
+	    }
+	  else
+	    {
+	      cout << "allergen: " << k << ", food:" << v.front() << endl;
+	      for(auto& [k2, v2] : possible_foods_map)
+		{
+		  if(k2 ==k)
+		    continue;
+		  auto pos = std::find(v2.begin(), v2.end(), v.front());
+		  if(pos != v2.end())
+		    v2.erase(pos);
+		 
+		}
+	    }
+
+	};
+      
+      if(!any_length_gt_1)
+	break;
+      
+    }
+
+
+  
+
+  for(auto& [k,v] : possible_foods_map)
+    {
+      cout << "allergen:" << k << endl;
+      for(auto& a : v)
+	cout << a << ",";
       cout << endl;
     }
-  
+
+  std::vector<string> sorted_allergen_list;
+  for(auto&[k,v] : possible_foods_map)
+    sorted_allergen_list.push_back(k);
+  std::sort(sorted_allergen_list.begin(), sorted_allergen_list.end());
+
+  std::ostringstream oss;
+  std::ostringstream oss2;
+  for(auto& sa: sorted_allergen_list)
+    {
+      auto food = possible_foods_map.at(sa).front();
+      oss << food << ",";
+      oss2 << sa << ",";
+    }
+
+  cout << "canonical list: " << oss.str() << endl;
+  cout << "allergen list: " << oss2.str() << endl;
 }
