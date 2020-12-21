@@ -86,17 +86,13 @@ int main(int argc, char** argv)
   cout << "total allergens: " << allallergens.size() << endl;
 
   for(auto& a : allallergens)
-    {
       cout << a << ",";
-    }
   cout << endl;
 
   ingredients allfoods;
   for(auto& all : foodsvec)
-    {
       for(auto& a : all)
 	allfoods.insert(a);
-    }
 
   
   std::unordered_map<string, std::vector<string>> possible_foods_map;
@@ -109,13 +105,12 @@ int main(int argc, char** argv)
 	{
 	  auto pos = std::find(ca.begin(), ca.end(), a);
 	  if(pos != ca.end())
-	    {
-	      if(possible_foods.empty())
+	    if(possible_foods.empty())
 		{
 		  possible_foods.resize(foodit->size());
 		  std::copy(foodit->begin(), foodit->end(), possible_foods.begin());
 		}
-	      else
+	    else
 		{
 		  std::vector<string> temp;
 		  temp.reserve(possible_foods.size());
@@ -124,7 +119,6 @@ int main(int argc, char** argv)
 					foodit->begin(), foodit->end(), std::back_inserter(temp));
 		  possible_foods = temp;
 		}
-	    }
 	  foodit++;
 	}
       possible_foods_map[a] = possible_foods;
@@ -133,9 +127,7 @@ int main(int argc, char** argv)
 
   std::unordered_set<string> all_allergenic_foods;
   for(auto& [k,v] : possible_foods_map)
-    {
-      all_allergenic_foods.insert(v.begin(), v.end());
-    };
+    all_allergenic_foods.insert(v.begin(), v.end());
   
 
   std::vector<string> unallergenic_foods;
@@ -154,12 +146,8 @@ int main(int argc, char** argv)
   //count number of occurrences;
   int total_count = 0;
   for(auto& fd:  unallergenic_foods)
-    {
       for(auto& foodlist: foodsvec)
-	{
 	  total_count += std::count(foodlist.begin(), foodlist.end(), fd);
-	};
-    }
 
   cout << "total unallergenic food appearance: " << total_count << endl;
 
@@ -170,23 +158,15 @@ int main(int argc, char** argv)
       for(auto& [k,v] : possible_foods_map)
 	{
 	  if(v.size() > 1)
-	    {
-	      cout << "key: " << k << "gr length 1" << endl;
 	      any_length_gt_1 = true;
-	    }
 	  else
-	    {
-	      cout << "allergen: " << k << ", food:" << v.front() << endl;
-	      for(auto& [k2, v2] : possible_foods_map)
+	    for(auto& [k2, v2] : possible_foods_map)
+	      if(k2 !=k)
 		{
-		  if(k2 ==k)
-		    continue;
 		  auto pos = std::find(v2.begin(), v2.end(), v.front());
 		  if(pos != v2.end())
 		    v2.erase(pos);
-		 
 		}
-	    }
 
 	};
       
@@ -195,16 +175,6 @@ int main(int argc, char** argv)
       
     }
 
-
-  
-
-  for(auto& [k,v] : possible_foods_map)
-    {
-      cout << "allergen:" << k << endl;
-      for(auto& a : v)
-	cout << a << ",";
-      cout << endl;
-    }
 
   std::vector<string> sorted_allergen_list;
   for(auto&[k,v] : possible_foods_map)
