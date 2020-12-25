@@ -4,6 +4,9 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <array>
+#include <vector>
+#include <algorithm>
 
 using std::cout;
 using std::endl;
@@ -46,6 +49,21 @@ point locate_point(const string& s)
 
 };
 
+std::array<point, 6> get_neighbours(const point& centre)
+{
+  auto const& [x,y] = centre;
+  std::array<point, 6> out {{
+      {x-1, y},
+	{x+1, y},
+	  {x, y-1},
+	    {x,y+1},
+	      {x-1,y+1},
+		{x+1, y-1}}
+  };
+  return out;
+};
+
+
 
 int main(int argc, char** argv)
 {
@@ -69,10 +87,20 @@ int main(int argc, char** argv)
 
   //count number of black tiles
   int black_count = 0;
+  int max_x = 0;
+  int max_y = 0;
   for(auto& [k,v] : tilemap)
     {
       black_count += v;
+      max_x = std::max(std::get<0>(k), max_x);
+      max_y = std::max(std::get<1>(k), max_y);
     }
   cout << "black count: " << black_count << endl;
+  cout << "max_x: " << max_x << endl;
+  cout << "max_y: " << max_y << endl;
+
+  //convert to a dense representation (it's only 14 x 14
+  
+
   
 };
